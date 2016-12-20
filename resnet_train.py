@@ -181,7 +181,7 @@ def train(is_training, logits, images, labels, dataset_name):
             i = get_tensors_for_cifar(g)
             o = sess.run(i, { is_training: True })
             with open('tensors.pickle', mode='wb') as f:
-                data = {i[idx].name:out for (idx, out) in enumerate(o)}
+                data = {idx:out for (idx, out) in enumerate(o)}
                 pickle.dump(data, f)
 
 
