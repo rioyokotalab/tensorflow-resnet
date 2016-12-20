@@ -1,19 +1,27 @@
 from resnet import * 
 import tensorflow as tf
+from tensorflow.python.client import timeline
+
+try:
+    import cPickle as pickle
+except:
+    import pickle
 
 MOMENTUM = 0.9
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('train_dir', '/tmp/resnet_train',
+tf.app.flags.DEFINE_string('train_dir', '/opt/storage/logs/resnet/cifar-10',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_float('learning_rate', 0.01, "learning rate.")
 tf.app.flags.DEFINE_integer('batch_size', 16, "batch size")
-tf.app.flags.DEFINE_integer('max_steps', 500000, "max steps")
+tf.app.flags.DEFINE_integer('max_steps', 100, "max steps")
 tf.app.flags.DEFINE_boolean('resume', False,
                             'resume from latest saved state')
 tf.app.flags.DEFINE_boolean('minimal_summaries', True,
                             'produce fewer summaries to save HD space')
+tf.app.flags.DEFINE_boolean('log_device_placement', False,
+                            'wheather to log device placement')
 
 
 def top_k_error(predictions, labels, k):
@@ -22,7 +30,7 @@ def top_k_error(predictions, labels, k):
     num_correct = tf.reduce_sum(in_top1)
     return (batch_size - num_correct) / batch_size
 
-def train(is_training, logits, images, labels):
+def train(is_training, logits, images, labels, gpu_options):
     global_step = tf.get_variable('global_step', [],
                                   initializer=tf.constant_initializer(0),
                                   trainable=False)
@@ -39,15 +47,16 @@ def train(is_training, logits, images, labels):
     # loss_avg
     ema = tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY, global_step)
     tf.add_to_collection(UPDATE_OPS_COLLECTION, ema.apply([loss_]))
-    tf.scalar_summary('loss_avg', ema.average(loss_))
+    # tf.scalar_summary('loss_avg', ema.average(loss_))
+    tf.summary.scalar('loss_avg', ema.average(loss_))
 
     # validation stats
     ema = tf.train.ExponentialMovingAverage(0.9, val_step)
     val_op = tf.group(val_step.assign_add(1), ema.apply([top1_error]))
     top1_error_avg = ema.average(top1_error)
-    tf.scalar_summary('val_top1_error_avg', top1_error_avg)
+    tf.summary.scalar('val_top1_error_avg', top1_error_avg)
 
-    tf.scalar_summary('learning_rate', FLAGS.learning_rate)
+    tf.summary.scalar('learning_rate', FLAGS.learning_rate)
 
     opt = tf.train.MomentumOptimizer(FLAGS.learning_rate, MOMENTUM)
     grads = opt.compute_gradients(loss_)
@@ -67,17 +76,23 @@ def train(is_training, logits, images, labels):
     batchnorm_updates_op = tf.group(*batchnorm_updates)
     train_op = tf.group(apply_gradient_op, batchnorm_updates_op)
 
-    saver = tf.train.Saver(tf.all_variables())
+    saver = tf.train.Saver(tf.global_variables())
 
-    summary_op = tf.merge_all_summaries()
+    summary_op = tf.summary.merge_all()
 
-    init = tf.initialize_all_variables()
+    # init = tf.initialize_all_variables()
+    init = tf.global_variables_initializer()
 
-    sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
+    # for profile
+    #run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+    #run_metadata = tf.RunMetadata()
+
+    sess = tf.Session(config=tf.ConfigProto(log_device_placement=FLAGS.log_device_placement, gpu_options=gpu_options))
     sess.run(init)
     tf.train.start_queue_runners(sess=sess)
 
-    summary_writer = tf.train.SummaryWriter(FLAGS.train_dir, sess.graph)
+    # summary_writer = tf.train.SummaryWriter(FLAGS.train_dir, sess.graph)
+    summary_writer = tf.summary.FileWriter(FLAGS.train_dir, sess.graph)
 
     if FLAGS.resume:
         latest = tf.train.latest_checkpoint(FLAGS.train_dir)
@@ -99,8 +114,17 @@ def train(is_training, logits, images, labels):
 
         o = sess.run(i, { is_training: True })
 
-        loss_value = o[1]
+        #for profile
+        #o = sess.run(i, { is_training: True }, options=run_options, run_metadata=run_metadata)
+        #step_stats = run_metadata.step_stats
+        #tl = timeline.Timeline(step_stats)
+        #ctf = tl.generate_chrome_trace_format(show_memory=False,
+        #                                          show_dataflow=True)
+        #with open("timeline.json", "w") as f:
+        #    f.write(ctf)
 
+        loss_value = o[1]
+        
         duration = time.time() - start_time
 
         assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
@@ -125,5 +149,31 @@ def train(is_training, logits, images, labels):
             _, top1_error_value = sess.run([val_op, top1_error], { is_training: False })
             print('Validation top1 error %.2f' % top1_error_value)
 
+        if step > 1 and step % 100 == 0:
+            g = sess.graph
+            i = [
+               g.get_tensor_by_name("cond/Merge:0"),
+               g.get_tensor_by_name("scale1/Conv2D:0"), 
+               g.get_tensor_by_name("scale1/block1/Relu:0"), 
+               g.get_tensor_by_name("scale1/block2/Relu:0"), 
+               g.get_tensor_by_name("scale1/block3/Relu:0"), 
+               g.get_tensor_by_name("scale2/block1/Relu:0"), 
+               g.get_tensor_by_name("scale2/block2/Relu:0"), 
+               g.get_tensor_by_name("scale2/block3/Relu:0"), 
+               g.get_tensor_by_name("scale3/block1/Relu:0"), 
+               g.get_tensor_by_name("scale3/block2/Relu:0"), 
+               g.get_tensor_by_name("scale3/block3/Relu:0"),
+               g.get_tensor_by_name("avg_pool:0"), 
+               g.get_tensor_by_name("fc/xw_plus_b:0")
+            ]
+            o = sess.run(i, { is_training: True })
+            #f = open('layers.txt', 'w')
+            #for name in [n.name for n in tf.get_default_graph().as_graph_def().node
+            #             if n.name.startswith("scale")]:
+            #    f.write(name + "\n")
+            #f.close()
+            with open('matrices.pickle', mode='wb') as f:
+                data = {i[idx].name:out for (idx, out) in enumerate(o)}
+                pickle.dump(data, f)
 
 

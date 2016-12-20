@@ -101,19 +101,23 @@ def inference_small(x,
     c['fc_units_out'] = num_classes
     c['num_blocks'] = num_blocks
     c['num_classes'] = num_classes
-    inference_small_config(x, c)
+    return inference_small_config(x, c)
 
 def inference_small_config(x, c):
     c['bottleneck'] = False
     c['ksize'] = 3
     c['stride'] = 1
+    print (x)
     with tf.variable_scope('scale1'):
         c['conv_filters_out'] = 16
         c['block_filters_internal'] = 16
         c['stack_stride'] = 1
         x = conv(x, c)
+        print (x)
         x = bn(x, c)
+        print (x)
         x = activation(x)
+        print (x)
         x = stack(x, c)
 
     with tf.variable_scope('scale2'):
@@ -128,10 +132,12 @@ def inference_small_config(x, c):
 
     # post-net
     x = tf.reduce_mean(x, reduction_indices=[1, 2], name="avg_pool")
+    print (x)
 
     if c['num_classes'] != None:
         with tf.variable_scope('fc'):
             x = fc(x, c)
+            print (x)
 
     return x
 
@@ -151,7 +157,8 @@ def loss(logits, labels):
     regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
 
     loss_ = tf.add_n([cross_entropy_mean] + regularization_losses)
-    tf.scalar_summary('loss', loss_)
+    # tf.scalar_summary('loss', loss_)
+    tf.summary.scalar('loss', loss_)
 
     return loss_
 
@@ -162,6 +169,7 @@ def stack(x, c):
         c['block_stride'] = s
         with tf.variable_scope('block%d' % (n + 1)):
             x = block(x, c)
+            print (x)
     return x
 
 
@@ -241,7 +249,7 @@ def bn(x, c):
                          initializer=tf.zeros_initializer)
     gamma = _get_variable('gamma',
                           params_shape,
-                          initializer=tf.ones_initializer)
+                          initializer=tf.ones_initializer())
 
     moving_mean = _get_variable('moving_mean',
                                 params_shape,
@@ -249,7 +257,7 @@ def bn(x, c):
                                 trainable=False)
     moving_variance = _get_variable('moving_variance',
                                     params_shape,
-                                    initializer=tf.ones_initializer,
+                                    initializer=tf.ones_initializer(),
                                     trainable=False)
 
     # These ops will only be preformed when training.
@@ -300,7 +308,7 @@ def _get_variable(name,
         regularizer = tf.contrib.layers.l2_regularizer(weight_decay)
     else:
         regularizer = None
-    collections = [tf.GraphKeys.VARIABLES, RESNET_VARIABLES]
+    collections = [tf.GraphKeys.GLOBAL_VARIABLES, RESNET_VARIABLES]
     return tf.get_variable(name,
                            shape=shape,
                            initializer=initializer,

@@ -192,7 +192,8 @@ def distorted_inputs(data_dir, batch_size):
         distorted_image, lower=0.2, upper=1.8)
 
     # Subtract off the mean and divide by the variance of the pixels.
-    float_image = tf.image.per_image_whitening(distorted_image)
+    # float_image = tf.image.per_image_whitening(distorted_image)
+    float_image = tf.image.per_image_standardization(distorted_image)
 
     # Ensure that the random shuffling has good mixing properties.
     min_fraction_of_examples_in_queue = 0.4
@@ -250,7 +251,8 @@ def inputs(eval_data, data_dir, batch_size):
                                                            width, height)
 
     # Subtract off the mean and divide by the variance of the pixels.
-    float_image = tf.image.per_image_whitening(resized_image)
+    # float_image = tf.image.per_image_whitening(resized_image)
+    float_image = tf.image.per_image_standardization(resized_image)
 
     # Ensure that the random shuffling has good mixing properties.
     min_fraction_of_examples_in_queue = 0.4
@@ -304,7 +306,9 @@ def main(argv=None):  # pylint: disable=unused-argument
                              is_training=is_training,
                              use_bias=(not FLAGS.use_bn),
                              num_blocks=3)
-    train(is_training, logits, images, labels)
+
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
+    train(is_training, logits, images, labels, gpu_options)
 
 
 if __name__ == '__main__':
