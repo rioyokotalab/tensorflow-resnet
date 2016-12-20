@@ -12,9 +12,10 @@ from synset import *
 from image_processing import image_preprocessing
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('data_dir', '/home/ryan/data/ILSVRC2012/ILSVRC2012_img_train',
+tf.app.flags.DEFINE_string('data_dir', '/opt/storage/data/imagenet/ILSVRC2012/ILSVRC2012_img_train',
                            'imagenet dir')
-
+tf.app.flags.DEFINE_string('dataset_name', 'imagenet',
+                           'name of data set')
 
 def file_list(data_dir):
     dir_txt = data_dir + ".txt"
@@ -98,7 +99,7 @@ def main(_):
                        is_training=True,
                        bottleneck=False,
                        num_blocks=[2, 2, 2, 2])
-    train(logits, images, labels)
+    train(logits, images, labels, FLAGS.dataset_name)
 
 
 if __name__ == '__main__':

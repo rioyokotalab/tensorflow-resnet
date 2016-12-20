@@ -7,10 +7,13 @@ try:
 except:
     import pickle
 
+import datetime
+import os
+
 MOMENTUM = 0.9
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('train_dir', '/opt/storage/logs/resnet/cifar-10',
+tf.app.flags.DEFINE_string('log_dir', '/opt/storage/logs/resnet/',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_float('learning_rate', 0.01, "learning rate.")
@@ -22,7 +25,31 @@ tf.app.flags.DEFINE_boolean('minimal_summaries', True,
                             'produce fewer summaries to save HD space')
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             'wheather to log device placement')
+tf.app.flags.DEFINE_float('per_process_gpu_memory_fraction', 0.3, "gpu option")
 
+def get_log_dir(dataset_name):
+    t = datetime.datetime.today()
+    dt_str = t.strftime("%Y%m%d%H%M%S")
+    filename = dataset_name + "_" +  dt_str
+    return os.path.join(FLAGS.log_dir, filename)
+
+def get_tensors_for_cifar(g):
+    i = [
+           g.get_tensor_by_name("cond/Merge:0"),
+           g.get_tensor_by_name("scale1/Conv2D:0"), 
+           g.get_tensor_by_name("scale1/block1/Relu:0"), 
+           g.get_tensor_by_name("scale1/block2/Relu:0"), 
+           g.get_tensor_by_name("scale1/block3/Relu:0"), 
+           g.get_tensor_by_name("scale2/block1/Relu:0"), 
+           g.get_tensor_by_name("scale2/block2/Relu:0"), 
+           g.get_tensor_by_name("scale2/block3/Relu:0"), 
+           g.get_tensor_by_name("scale3/block1/Relu:0"), 
+           g.get_tensor_by_name("scale3/block2/Relu:0"), 
+           g.get_tensor_by_name("scale3/block3/Relu:0"),
+           g.get_tensor_by_name("avg_pool:0"), 
+           g.get_tensor_by_name("fc/xw_plus_b:0")
+        ]
+    return i
 
 def top_k_error(predictions, labels, k):
     batch_size = float(FLAGS.batch_size) #tf.shape(predictions)[0]
@@ -30,7 +57,7 @@ def top_k_error(predictions, labels, k):
     num_correct = tf.reduce_sum(in_top1)
     return (batch_size - num_correct) / batch_size
 
-def train(is_training, logits, images, labels, gpu_options):
+def train(is_training, logits, images, labels, dataset_name):
     global_step = tf.get_variable('global_step', [],
                                   initializer=tf.constant_initializer(0),
                                   trainable=False)
@@ -42,12 +69,11 @@ def train(is_training, logits, images, labels, gpu_options):
     predictions = tf.nn.softmax(logits)
 
     top1_error = top_k_error(predictions, labels, 1)
-
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=FLAGS.per_process_gpu_memory_fraction)
 
     # loss_avg
     ema = tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY, global_step)
     tf.add_to_collection(UPDATE_OPS_COLLECTION, ema.apply([loss_]))
-    # tf.scalar_summary('loss_avg', ema.average(loss_))
     tf.summary.scalar('loss_avg', ema.average(loss_))
 
     # validation stats
@@ -80,7 +106,6 @@ def train(is_training, logits, images, labels, gpu_options):
 
     summary_op = tf.summary.merge_all()
 
-    # init = tf.initialize_all_variables()
     init = tf.global_variables_initializer()
 
     # for profile
@@ -90,14 +115,16 @@ def train(is_training, logits, images, labels, gpu_options):
     sess = tf.Session(config=tf.ConfigProto(log_device_placement=FLAGS.log_device_placement, gpu_options=gpu_options))
     sess.run(init)
     tf.train.start_queue_runners(sess=sess)
+   
+    log_dir = get_log_dir(dataset_name)
+    print "Training logs will be stored in", log_dir
 
-    # summary_writer = tf.train.SummaryWriter(FLAGS.train_dir, sess.graph)
-    summary_writer = tf.summary.FileWriter(FLAGS.train_dir, sess.graph)
+    summary_writer = tf.summary.FileWriter(log_dir, sess.graph)
 
     if FLAGS.resume:
-        latest = tf.train.latest_checkpoint(FLAGS.train_dir)
+        latest = tf.train.latest_checkpoint(log_dir)
         if not latest:
-            print "No checkpoint to continue from in", FLAGS.train_dir
+            print "No checkpoint to continue from in", log_dir
             sys.exit(1)
         print "resume", latest
         saver.restore(sess, latest)
@@ -141,7 +168,7 @@ def train(is_training, logits, images, labels, gpu_options):
 
         # Save the model checkpoint periodically.
         if step > 1 and step % 100 == 0:
-            checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
+            checkpoint_path = os.path.join(log_dir, 'model.ckpt')
             saver.save(sess, checkpoint_path, global_step=global_step)
 
         # Run validation periodically
@@ -151,28 +178,9 @@ def train(is_training, logits, images, labels, gpu_options):
 
         if step > 1 and step % 100 == 0:
             g = sess.graph
-            i = [
-               g.get_tensor_by_name("cond/Merge:0"),
-               g.get_tensor_by_name("scale1/Conv2D:0"), 
-               g.get_tensor_by_name("scale1/block1/Relu:0"), 
-               g.get_tensor_by_name("scale1/block2/Relu:0"), 
-               g.get_tensor_by_name("scale1/block3/Relu:0"), 
-               g.get_tensor_by_name("scale2/block1/Relu:0"), 
-               g.get_tensor_by_name("scale2/block2/Relu:0"), 
-               g.get_tensor_by_name("scale2/block3/Relu:0"), 
-               g.get_tensor_by_name("scale3/block1/Relu:0"), 
-               g.get_tensor_by_name("scale3/block2/Relu:0"), 
-               g.get_tensor_by_name("scale3/block3/Relu:0"),
-               g.get_tensor_by_name("avg_pool:0"), 
-               g.get_tensor_by_name("fc/xw_plus_b:0")
-            ]
+            i = get_tensors_for_cifar(g)
             o = sess.run(i, { is_training: True })
-            #f = open('layers.txt', 'w')
-            #for name in [n.name for n in tf.get_default_graph().as_graph_def().node
-            #             if n.name.startswith("scale")]:
-            #    f.write(name + "\n")
-            #f.close()
-            with open('matrices.pickle', mode='wb') as f:
+            with open('tensors.pickle', mode='wb') as f:
                 data = {i[idx].name:out for (idx, out) in enumerate(o)}
                 pickle.dump(data, f)
 

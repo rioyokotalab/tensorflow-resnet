@@ -32,9 +32,11 @@ import tensorflow as tf
 DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz'
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('data_dir', '/tmp/cifar-data',
+tf.app.flags.DEFINE_string('data_dir', '/opt/storage/data/cifar-data',
                            'where to store the dataset')
 tf.app.flags.DEFINE_boolean('use_bn', True, 'use batch normalization. otherwise use biases')
+tf.app.flags.DEFINE_string('dataset_name', 'cifar-10',
+                           'name of data set')
 
 # Process images of this size. Note that this differs from the original CIFAR
 # image size of 32 x 32. If one alters this number, then the entire model
@@ -307,8 +309,7 @@ def main(argv=None):  # pylint: disable=unused-argument
                              use_bias=(not FLAGS.use_bn),
                              num_blocks=3)
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
-    train(is_training, logits, images, labels, gpu_options)
+    train(is_training, logits, images, labels, FLAGS.dataset_name)
 
 
 if __name__ == '__main__':
