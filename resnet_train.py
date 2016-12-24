@@ -13,11 +13,11 @@ import os
 MOMENTUM = 0.9
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('log_dir', '/opt/storage/logs/resnet/',
+tf.app.flags.DEFINE_string('log_dir', '/opt/storage/models/resnet/',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_float('learning_rate', 0.01, "learning rate.")
-tf.app.flags.DEFINE_integer('batch_size', 16, "batch size")
+tf.app.flags.DEFINE_integer('batch_size', 128, "batch size")
 tf.app.flags.DEFINE_integer('max_steps', 100, "max steps")
 tf.app.flags.DEFINE_boolean('resume', False,
                             'resume from latest saved state')
@@ -25,27 +25,74 @@ tf.app.flags.DEFINE_boolean('minimal_summaries', True,
                             'produce fewer summaries to save HD space')
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             'wheather to log device placement')
-tf.app.flags.DEFINE_float('per_process_gpu_memory_fraction', 0.3, "gpu option")
+tf.app.flags.DEFINE_float('per_process_gpu_memory_fraction', 0.9, "gpu option")
 
-def get_log_dir(dataset_name):
-    t = datetime.datetime.today()
-    dt_str = t.strftime("%Y%m%d%H%M%S")
-    filename = dataset_name + "_" +  dt_str
+def get_log_dir(layers):
+    # t = datetime.datetime.today()
+    # dt_str = t.strftime("%Y%m%d%H%M%S")
+    filename = "ResNet-L%d" % layers
     return os.path.join(FLAGS.log_dir, filename)
 
 def get_tensors_for_cifar(g):
     i = [
            g.get_tensor_by_name("cond/Merge:0"),
+           g.get_tensor_by_name("scale1/weights/read:0"),
            g.get_tensor_by_name("scale1/Conv2D:0"), 
+           g.get_tensor_by_name("scale1/Relu:0"),
+           g.get_tensor_by_name("scale1/block1/A/weights/read:0"),
+           g.get_tensor_by_name("scale1/block1/A/Conv2D:0"), 
+           g.get_tensor_by_name("scale1/block1/A/Relu:0"), 
+           g.get_tensor_by_name("scale1/block1/B/weights/read:0"),
+           g.get_tensor_by_name("scale1/block1/B/Conv2D:0"), 
            g.get_tensor_by_name("scale1/block1/Relu:0"), 
+           g.get_tensor_by_name("scale1/block2/A/weights/read:0"),
+           g.get_tensor_by_name("scale1/block2/A/Conv2D:0"), 
+           g.get_tensor_by_name("scale1/block2/A/Relu:0"), 
+           g.get_tensor_by_name("scale1/block2/B/weights/read:0"),
+           g.get_tensor_by_name("scale1/block2/B/Conv2D:0"), 
            g.get_tensor_by_name("scale1/block2/Relu:0"), 
+           g.get_tensor_by_name("scale1/block3/A/weights/read:0"),
+           g.get_tensor_by_name("scale1/block3/A/Conv2D:0"), 
+           g.get_tensor_by_name("scale1/block3/A/Relu:0"), 
+           g.get_tensor_by_name("scale1/block3/B/weights/read:0"),
+           g.get_tensor_by_name("scale1/block3/B/Conv2D:0"), 
            g.get_tensor_by_name("scale1/block3/Relu:0"), 
+           g.get_tensor_by_name("scale2/block1/A/weights/read:0"),
+           g.get_tensor_by_name("scale2/block1/A/Conv2D:0"), 
+           g.get_tensor_by_name("scale2/block1/A/Relu:0"), 
+           g.get_tensor_by_name("scale2/block1/B/weights/read:0"),
+           g.get_tensor_by_name("scale2/block1/B/Conv2D:0"), 
            g.get_tensor_by_name("scale2/block1/Relu:0"), 
+           g.get_tensor_by_name("scale2/block2/A/weights/read:0"),
+           g.get_tensor_by_name("scale2/block2/A/Conv2D:0"), 
+           g.get_tensor_by_name("scale2/block2/A/Relu:0"), 
+           g.get_tensor_by_name("scale2/block2/B/weights/read:0"),
+           g.get_tensor_by_name("scale2/block2/B/Conv2D:0"), 
            g.get_tensor_by_name("scale2/block2/Relu:0"), 
+           g.get_tensor_by_name("scale2/block3/A/weights/read:0"),
+           g.get_tensor_by_name("scale2/block3/A/Conv2D:0"), 
+           g.get_tensor_by_name("scale2/block3/A/Relu:0"), 
+           g.get_tensor_by_name("scale2/block3/B/weights/read:0"),
+           g.get_tensor_by_name("scale2/block3/B/Conv2D:0"), 
            g.get_tensor_by_name("scale2/block3/Relu:0"), 
+           g.get_tensor_by_name("scale3/block1/A/weights/read:0"),
+           g.get_tensor_by_name("scale3/block1/A/Conv2D:0"), 
+           g.get_tensor_by_name("scale3/block1/A/Relu:0"), 
+           g.get_tensor_by_name("scale3/block1/B/weights/read:0"),
+           g.get_tensor_by_name("scale3/block1/B/Conv2D:0"), 
            g.get_tensor_by_name("scale3/block1/Relu:0"), 
+           g.get_tensor_by_name("scale3/block2/A/weights/read:0"),
+           g.get_tensor_by_name("scale3/block2/A/Conv2D:0"), 
+           g.get_tensor_by_name("scale3/block2/A/Relu:0"), 
+           g.get_tensor_by_name("scale3/block2/B/weights/read:0"),
+           g.get_tensor_by_name("scale3/block2/B/Conv2D:0"), 
            g.get_tensor_by_name("scale3/block2/Relu:0"), 
-           g.get_tensor_by_name("scale3/block3/Relu:0"),
+           g.get_tensor_by_name("scale3/block3/A/weights/read:0"),
+           g.get_tensor_by_name("scale3/block3/A/Conv2D:0"), 
+           g.get_tensor_by_name("scale3/block3/A/Relu:0"), 
+           g.get_tensor_by_name("scale3/block3/B/weights/read:0"),
+           g.get_tensor_by_name("scale3/block3/B/Conv2D:0"), 
+           g.get_tensor_by_name("scale3/block3/Relu:0"), 
            g.get_tensor_by_name("avg_pool:0"), 
            g.get_tensor_by_name("fc/xw_plus_b:0")
         ]
@@ -57,7 +104,7 @@ def top_k_error(predictions, labels, k):
     num_correct = tf.reduce_sum(in_top1)
     return (batch_size - num_correct) / batch_size
 
-def train(is_training, logits, images, labels, dataset_name):
+def train(is_training, logits, images, labels, layers):
     global_step = tf.get_variable('global_step', [],
                                   initializer=tf.constant_initializer(0),
                                   trainable=False)
@@ -109,14 +156,14 @@ def train(is_training, logits, images, labels, dataset_name):
     init = tf.global_variables_initializer()
 
     # for profile
-    #run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-    #run_metadata = tf.RunMetadata()
+    run_options = tf.RunOptions(trace_level=tf.RunOptions.SOFTWARE_TRACE)
+    run_metadata = tf.RunMetadata()
 
     sess = tf.Session(config=tf.ConfigProto(log_device_placement=FLAGS.log_device_placement, gpu_options=gpu_options))
     sess.run(init)
     tf.train.start_queue_runners(sess=sess)
    
-    log_dir = get_log_dir(dataset_name)
+    log_dir = get_log_dir(layers)
     print "Training logs will be stored in", log_dir
 
     summary_writer = tf.summary.FileWriter(log_dir, sess.graph)
@@ -139,24 +186,21 @@ def train(is_training, logits, images, labels, dataset_name):
         if write_summary:
             i.append(summary_op)
 
-        o = sess.run(i, { is_training: True })
+        if step == 0:
+            o = sess.run(i, { is_training: True })
+        else:
+            #for profile
+            o = sess.run(i, { is_training: True }, options=run_options, run_metadata=run_metadata)
+            step_stats = run_metadata.step_stats
+            tl = timeline.Timeline(step_stats)
+            ctf = tl.generate_chrome_trace_format(show_memory=False, show_dataflow=True)
+            with open("timeline.json", "w") as f:
+                f.write(ctf)
 
-        #for profile
-        #o = sess.run(i, { is_training: True }, options=run_options, run_metadata=run_metadata)
-        #step_stats = run_metadata.step_stats
-        #tl = timeline.Timeline(step_stats)
-        #ctf = tl.generate_chrome_trace_format(show_memory=False,
-        #                                          show_dataflow=True)
-        #with open("timeline.json", "w") as f:
-        #    f.write(ctf)
-
-        loss_value = o[1]
-        
+        loss_value = o[1]        
         duration = time.time() - start_time
-
         assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
-
-        if step % 5 == 0:
+        if step % 1 == 0:
             examples_per_sec = FLAGS.batch_size / float(duration)
             format_str = ('step %d, loss = %.2f (%.1f examples/sec; %.3f '
                           'sec/batch)')

@@ -35,8 +35,6 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('data_dir', '/opt/storage/data/cifar-data',
                            'where to store the dataset')
 tf.app.flags.DEFINE_boolean('use_bn', True, 'use batch normalization. otherwise use biases')
-tf.app.flags.DEFINE_string('dataset_name', 'cifar-10',
-                           'name of data set')
 
 # Process images of this size. Note that this differs from the original CIFAR
 # image size of 32 x 32. If one alters this number, then the entire model
@@ -303,14 +301,17 @@ def main(argv=None):  # pylint: disable=unused-argument
         lambda: (images_train, labels_train),
         lambda: (images_val, labels_val))
 
-    logits = inference_small(images,
+    logits, layers = inference_small(images,
                              num_classes=10,
                              is_training=is_training,
                              use_bias=(not FLAGS.use_bn),
                              num_blocks=3)
-
-    train(is_training, logits, images, labels, FLAGS.dataset_name)
+ 
+    train(is_training, logits, images, labels, layers)
 
 
 if __name__ == '__main__':
-    tf.app.run()
+    print ('##############')
+    print ('tf.app.run()')
+    print ('##############')
+    tf.app.run(main)

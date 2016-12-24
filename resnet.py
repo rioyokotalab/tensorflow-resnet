@@ -101,7 +101,7 @@ def inference_small(x,
     c['fc_units_out'] = num_classes
     c['num_blocks'] = num_blocks
     c['num_classes'] = num_classes
-    return inference_small_config(x, c)
+    return inference_small_config(x, c), 6*num_blocks+2
 
 def inference_small_config(x, c):
     c['bottleneck'] = False
@@ -115,9 +115,7 @@ def inference_small_config(x, c):
         x = conv(x, c)
         print (x)
         x = bn(x, c)
-        print (x)
         x = activation(x)
-        print (x)
         x = stack(x, c)
 
     with tf.variable_scope('scale2'):
@@ -191,12 +189,16 @@ def block(x, c):
         with tf.variable_scope('a'):
             c['ksize'] = 1
             c['stride'] = c['block_stride']
+            print (x)
             x = conv(x, c)
+            print (x)
             x = bn(x, c)
             x = activation(x)
 
         with tf.variable_scope('b'):
+            print (x)
             x = conv(x, c)
+            print (x)
             x = bn(x, c)
             x = activation(x)
 
@@ -204,13 +206,17 @@ def block(x, c):
             c['conv_filters_out'] = filters_out
             c['ksize'] = 1
             assert c['stride'] == 1
+            print (x)
             x = conv(x, c)
+            print (x)
             x = bn(x, c)
     else:
         with tf.variable_scope('A'):
             c['stride'] = c['block_stride']
             assert c['ksize'] == 3
+            print (x)
             x = conv(x, c)
+            print (x)
             x = bn(x, c)
             x = activation(x)
 
@@ -218,7 +224,9 @@ def block(x, c):
             c['conv_filters_out'] = filters_out
             assert c['ksize'] == 3
             assert c['stride'] == 1
+            print (x)
             x = conv(x, c)
+            print (x)
             x = bn(x, c)
 
     with tf.variable_scope('shortcut'):
@@ -331,6 +339,7 @@ def conv(x, c):
                             dtype='float',
                             initializer=initializer,
                             weight_decay=CONV_WEIGHT_DECAY)
+    print (weights)
     return tf.nn.conv2d(x, weights, [1, stride, stride, 1], padding='SAME')
 
 
