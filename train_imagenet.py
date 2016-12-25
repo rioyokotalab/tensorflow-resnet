@@ -12,7 +12,7 @@ from synset import *
 from image_processing import image_preprocessing
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('data_dir', '/opt/storage/data/imagenet/ILSVRC2012/ILSVRC2012_img_train',
+tf.app.flags.DEFINE_string('data_dir', '/opt/storage/data/imagenet/train',
                            'imagenet dir')
 tf.app.flags.DEFINE_string('dataset_name', 'imagenet',
                            'name of data set')
@@ -94,12 +94,14 @@ def distorted_inputs():
 def main(_):
     images, labels = distorted_inputs()
 
-    logits = inference(images,
+    is_training = tf.placeholder('bool', [], name='is_training')
+
+    logits, layers = inference(images,
                        num_classes=1000,
-                       is_training=True,
+                       is_training=is_training,
                        bottleneck=False,
-                       num_blocks=[2, 2, 2, 2])
-    train(logits, images, labels, FLAGS.dataset_name)
+                       num_blocks=[3, 8, 36, 3])
+    train(is_training, logits, images, labels, layers)
 
 
 if __name__ == '__main__':

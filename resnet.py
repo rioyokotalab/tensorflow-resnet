@@ -83,7 +83,7 @@ def inference(x, is_training,
         with tf.variable_scope('fc'):
             x = fc(x, c)
 
-    return x
+    return x, 3*(num_blocks[0]+num_blocks[1]+num_blocks[2]+num_blocks[3])+2
 
 
 # This is what they use for CIFAR-10 and 100.
@@ -259,8 +259,7 @@ def bn(x, c):
                           params_shape,
                           initializer=tf.ones_initializer())
 
-    moving_mean = _get_variable('moving_mean',
-                                params_shape,
+    moving_mean = _get_variable('moving_mean', params_shape,
                                 initializer=tf.zeros_initializer,
                                 trainable=False)
     moving_variance = _get_variable('moving_variance',
