@@ -1,14 +1,23 @@
-from convert import print_prob, load_image, checkpoint_fn, meta_fn
+from convert import print_prob, load_image, checkpoint_fn, meta_fn, load_model
 import tensorflow as tf
+import os
 
-layers = 50
+FLAGS = tf.app.flags.FLAGS
+
+tf.app.flags.DEFINE_string('resnet_model_base_dir', '/opt/storage/models/resnet',
+                           """Directory where to write trained models and checkpoints.""")
+
+tf.app.flags.DEFINE_string('resnet_model_name', 'ResNet-',
+                           """Model name.""")
+
+layers = 20
 
 img = load_image("data/cat.jpg")
 
 sess = tf.Session()
 
-new_saver = tf.train.import_meta_graph(meta_fn(layers))
-new_saver.restore(sess, checkpoint_fn(layers))
+saver = tf.train.import_meta_graph(meta_fn(layers))
+saver.restore(sess, checkpoint_fn(layers))
 
 graph = tf.get_default_graph()
 prob_tensor = graph.get_tensor_by_name("prob:0")

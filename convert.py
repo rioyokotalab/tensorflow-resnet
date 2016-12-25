@@ -225,6 +225,13 @@ def meta_fn(layers):
     return 'ResNet-L%d.meta' % layers
 
 
+def load_model(model_dir, sess):
+    saver = tf.train.Saver()
+    ckpt = tf.train.get_checkpoint_state(model_dir)
+    assert ckpt and ckpt.model_checkpoint_path, "Could not restore check point."
+    saver.restore(sess, os.path.join(model_dir, ckpt.model_checkpoint_path))
+
+
 def convert(graph, img, img_p, layers):
     caffe_model = load_caffe(img_p, layers)
 
