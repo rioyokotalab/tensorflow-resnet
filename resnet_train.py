@@ -220,12 +220,12 @@ def train(is_training, logits, images, labels, layers):
             _, top1_error_value = sess.run([val_op, top1_error], { is_training: False })
             print('Validation top1 error %.2f' % top1_error_value)
 
-        if step > 1 and step % 100 == 0:
-            g = sess.graph
-            i = get_tensors_for_cifar(g)
-            o = sess.run(i, { is_training: True })
-            with open('tensors.pickle', mode='wb') as f:
-                data = {idx:out for (idx, out) in enumerate(o)}
-                pickle.dump(data, f)
+        #if step > 1 and step % 100 == 0:
+        #    g = sess.graph
+        #    i = get_tensors_for_cifar(g)
+        #    o = sess.run(i, { is_training: True })
+        #    with open('tensors.pickle', mode='wb') as f:
+        #        data = {idx:out for (idx, out) in enumerate(o)}
+        #        pickle.dump(data, f)
 
 

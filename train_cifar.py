@@ -311,7 +311,4 @@ def main(argv=None):  # pylint: disable=unused-argument
 
 
 if __name__ == '__main__':
-    print ('##############')
-    print ('tf.app.run()')
-    print ('##############')
     tf.app.run(main)
